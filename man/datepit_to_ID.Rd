@@ -2,15 +2,20 @@
 % Please edit documentation in R/datepit.R
 \name{datepit_to_ID}
 \alias{datepit_to_ID}
-\title{Function for obtaining the ID of an individual using columns date and pit}
+\title{datepit_to_ID}
 \usage{
 datepit_to_ID(tb, tb_pit)
 }
 \arguments{
-\item{tb}{table to put ID's into (and get pit tags and dates from) must have columns "date" and "pit". Date should be formated as date-month-year}
+\item{tb}{table to put ID's into (and get pit tags and dates from) must have columns "date" and "pit". Date should be formated as date-month-year or as a date value. The function's output will be this table plus a new "ID" column.}
 
-\item{tb_pit}{a table that contains all known pit tags, their date of registration, and their corresponding ID}
+\item{tb_pit}{a table that contains all known pit tags, their date of registration, and their corresponding ID. Date should be formated as data-month-year or as a date value.}
 }
 \description{
-Function for obtaining the ID of an individual using columns date and pit
+Function for obtaining the ID of an individual using columns date and pit. It takes in two tables, one to fill in (tb) and one to look up pit-tags from (tb_pit)
+}
+\examples{
+tb_fish_withID <- datepit_to_ID(tb_fish,tb_pit)
+tb_fish_withID <- tb_fish \%>\% datepit_to_ID(tb_pit)
+tb_fish_withID <- tb_fish \%>\% datepit_to-ID(read.table("pit date reference.txt",head=T))
 }
