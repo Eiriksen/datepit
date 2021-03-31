@@ -20,8 +20,8 @@ datepit_to_ID = function(tb, tb_pit){
   .oldDate <- tb$date
 
   # format dates, if necessary
-  tb_pit$date <- ifelse( !is.Date(tb_pit$date), ymd(tb_pit$date), tb_pit$date)
-  tb$date     <- ifelse( !is.Date(tb$date), ymd(tb$date), tb$date)
+  tb_pit$date <- ymd(tb_pit$date)
+  tb$date     <- ymd(tb$date)
 
   # create the ID column in tb if it does not exist yet
   if (!"ID" %in% colnames(tb)) {
