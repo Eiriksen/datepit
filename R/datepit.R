@@ -7,7 +7,6 @@
 #' @examples tb_fish_withID <- tb_fish %>% datepit_to-ID(read.table("pit date reference.txt",head=T))
 #' @export
 datepit_to_ID = function(tb, tb_pit){
-  options(warn=2)
   require(lubridate)
 
   # check that pit and date columns exist in the table
