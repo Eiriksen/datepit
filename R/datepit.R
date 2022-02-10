@@ -22,22 +22,20 @@ datepit_to_ID = function(tb, tb_pit){
   tb_pit$date <- ymd(tb_pit$date)
   tb$date     <- ymd(tb$date)
 
-  # create the ID column in tb if it does not exist yet
-  if (!"ID" %in% colnames(tb)) {
-    tb$ID <- ""
+  getID <- function(pit,date){
+
   }
 
-  # the algorithm:
-  for (row in 1:nrow(tb))
-  {
+  # the algorithm
+  tb$ID <- apply(tb,MARGIN = 1,FUN=function(row){
     # For every row in the table...
     # Get the pit tag and date of this row
-    pit_r  <- tb[row,]$pit
-    date_r <- tb[row,]$date
+    rowlist <- as.list(row)
+    pit_r  <- rowlist$pit
+    date_r <- rowlist$date
     # if any of those are NA, then ID is NA
     if (is.na(pit_r) | is.na(date_r)){
-      tb[row,]$ID = NA
-      next()
+      return(NA)
     }
     # get all the ID's that match this PIT tag and have a date
     # - that is registered at the same date or before
@@ -45,22 +43,23 @@ datepit_to_ID = function(tb, tb_pit){
     IDs <- tb_pit[tb_pit$pit==pit_r & tb_pit$date <= date_r,]
     if (nrow(IDs)==0){
       # If none found, ID is nA
-      tb[row,]$ID <- NA
+      return(NA)
     }
     else {
       # If some are found, then pick the ID that was registered last
       ID = IDs[IDs$date == max(IDs$date),]$ID %>% unlist()
       if(length(ID)!=1)
-        tb[row,]$ID <- NA
+        return(NA)
       else
-        tb[row,]$ID <- ID
+        return(ID)
     }
-  }
+  })
 
   # put the old date column back and return the table
   tb$date <- .oldDate
   return(tb)
 }
+
 
 
 #' @export
