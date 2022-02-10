@@ -62,3 +62,73 @@ datepit_to_ID = function(tb, tb_pit){
   return(tb)
 }
 
+
+#' @export
+write_datepit_file <- function(tb, finclip_matches){
+
+  # a table with where every record of a pit tag is one row
+  # incl. pit, date, i_measurement, dnaID (if any), pit_i
+  tf_pit_raw_long <-
+    tb %>%
+    clean_ID_df(column_name="dnaID",prefix="Offsp",numLength=4,keep_name=T,remove_NA=F) %>%
+    # if the first occurance of a PIT does not have a dnaID, give it a fleeter ID
+    group_by(pit) %>%
+    mutate(
+      dnaID = ifelse((1:n())==1 & is.na(dnaID), yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID)
+    ) %>%
+    ungroup() %>%
+    rename(
+      pit.1=pit,
+      pit.2=pit_new,
+      pit.3=pit_second,
+      pit.4=pit_third
+    ) %>%
+    mutate(i_measurement = row_number()) %>%
+    pivot_longer(c(pit.1,pit.2,pit.3,pit.4),names_to="i_pit",values_to="pit") %>%
+    select(pit, date, dnaID, i_pit,i_measurement) %>%
+    filter(!is.na(pit),nchar(pit)==23)
+
+  # finclip matches
+  # keep only rows with a DNAID - and translate DNAID to ID_original
+  tf_pit_DNAID <-
+    tf_pit_raw_long %>%
+    filter(!is.na(dnaID), !is.na(pit)) %>%
+    lookup(
+      from = finclip_matches,
+      by.x = "dnaID",
+      by.y = "ID",
+      what = "ID_original",
+      overwrite = T,
+      overwriteNA = F
+    )
+
+  cycle <- function(tb_ID,tb_raw) {
+    tb_ID <-
+      tb_raw %>%
+      select(-c(dnaID)) %>%
+      filter(!is.na(pit),nchar(pit)==23) %>%
+      datepit_to_ID(tb_ID) %>%
+      pivot_wider(names_from = i_pit, values_from=pit) %>% group_by(i_measurement) %>% summarise_all(function(x){x[!is.na(x)][1]}) %>%
+      pivot_longer(-c(date,ID,i_measurement),names_to="i_pit",values_to="pit") %>%
+      group_by(pit,i_pit,i_measurement) %>%
+      summarise(
+        date = ymd(date[1]),
+        ID = ID[1]
+      ) %>%
+      filter(!is.na(ID),!is.na(pit)) %>%
+      group_by(ID,pit) %>%
+      summarise_all(function(x){x[!is.na(x)][1]}) %>%
+      ungroup()
+  }
+
+  tf_pit_ID <-
+    tf_pit_DNAID %>%
+    rename(ID=dnaID) %>%
+    cycle(tf_pit_raw_long) %>%
+    cycle(tf_pit_raw_long) %>%
+    cycle(tf_pit_raw_long) %>%
+    select(pit,date,ID)
+
+  return(tf_pit_ID)
+
+}
