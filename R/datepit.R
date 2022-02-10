@@ -92,7 +92,7 @@ write_datepit_file <- function(tb, finclip_matches){
   tf_pit_DNAID <-
     tf_pit_raw_long %>%
     filter(!is.na(dnaID), !is.na(pit)) %>%
-    lookup(
+    lookup::lookup(
       from = finclip_matches,
       by.x = "dnaID",
       by.y = "ID",
