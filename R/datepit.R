@@ -22,9 +22,6 @@ datepit_to_ID = function(tb, tb_pit){
   tb_pit$date <- ymd(tb_pit$date)
   tb$date     <- ymd(tb$date)
 
-  getID <- function(pit,date){
-
-  }
 
   # the algorithm
   tb$ID <- apply(tb,MARGIN = 1,FUN=function(row){
@@ -72,6 +69,8 @@ write_datepit_file <- function(tb, finclip_matches){
     clean_ID_df(column_name="dnaID",prefix="Offsp",numLength=4,keep_name=T,remove_NA=F) %>%
     # if the first occurance of a PIT does not have a dnaID, give it a fleeter ID
     group_by(pit) %>%
+    # if both pit and dnaID is missing, remove
+    filter( !is.na(dnaID) & (pit=="" | is.na(pit))) %>%
     mutate(
       dnaID = ifelse((1:n())==1 & is.na(dnaID), yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID)
     ) %>%
@@ -102,6 +101,7 @@ write_datepit_file <- function(tb, finclip_matches){
     )
 
   cycle <- function(tb_ID,tb_raw) {
+
     tb_ID <-
       tb_raw %>%
       select(-c(dnaID)) %>%
