@@ -69,6 +69,7 @@ write_datepit_file <- function(tb, finclip_matches){
     clean_ID_df(column_name="dnaID",prefix="Offsp",numLength=4,keep_name=T,remove_NA=F) %>%
     # if the first occurance of a PIT does not have a dnaID, give it a fleeter ID
     group_by(pit) %>%
+    arrange(date) %>%
     # if both pit and dnaID is missing, remove
     filter( !is.na(dnaID) & (pit=="" | is.na(pit))) %>%
     mutate(
