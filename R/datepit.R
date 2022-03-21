@@ -59,6 +59,37 @@ datepit_to_ID = function(tb, tb_pit){
 
 
 
+
+
+#' @export
+re_dnaID <- function(tb,tb_rednaid){
+  #1: Go through each row in the rednaID table
+  #2: for the given pit, and date:
+  #3: find the item in the datepit table with:
+  #4: the same pit
+  #5: that was registered the time before that datepit
+  #6 then, rename the ID in that item with the one from the current row in the rednaID table
+
+  for( i_row in 1:nrow(tb_rednaid) )
+  {
+    row <- tb_rednaid[i_row,]
+    pit <- row$pit
+    date <- row$date
+    dnaid <- row$dnaID
+
+    if(nrow( tb[tb$pit==pit & tb$date < date,])==0) message(glue("re-dnaid: pit {pit} for id {dnaid} and date {date} not found"))
+
+    tb[tb$pit==pit & tb$date < date,][1,][["ID"]] <- dnaid
+
+  }
+
+  return(tb)
+
+}
+
+
+
+
 #' @export
 write_datepit_file <- function(tb, finclip_matches){
 
@@ -70,8 +101,8 @@ write_datepit_file <- function(tb, finclip_matches){
     # if the first occurance of a PIT does not have a dnaID, give it a fleeter ID
     group_by(pit) %>%
     arrange(date) %>%
-    # if both pit and dnaID is missing, remove
-    filter( !is.na(dnaID) & (pit=="" | is.na(pit))) %>%
+    # if first mention of pit is missing dnaID, make fleeter
+    filter(pit!="" & !is.na(pit)) %>%
     mutate(
       dnaID = ifelse((1:n())==1 & is.na(dnaID), yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID)
     ) %>%
@@ -101,8 +132,8 @@ write_datepit_file <- function(tb, finclip_matches){
       overwriteNA = F
     )
 
-  cycle <- function(tb_ID,tb_raw) {
-
+  cycle <- function(tb_ID,tb_raw,msg) {
+    message(msg)
     tb_ID <-
       tb_raw %>%
       select(-c(dnaID)) %>%
@@ -121,12 +152,13 @@ write_datepit_file <- function(tb, finclip_matches){
       ungroup()
   }
 
+
   tf_pit_ID <-
     tf_pit_DNAID %>%
     rename(ID=dnaID) %>%
-    cycle(tf_pit_raw_long) %>%
-    cycle(tf_pit_raw_long) %>%
-    cycle(tf_pit_raw_long) %>%
+    cycle(tf_pit_raw_long,"0-32%") %>%
+    cycle(tf_pit_raw_long,"33-65%") %>%
+    cycle(tf_pit_raw_long,"66-100%") %>%
     select(pit,date,ID)
 
   return(tf_pit_ID)
