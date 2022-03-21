@@ -60,9 +60,10 @@ datepit_to_ID = function(tb, tb_pit){
 
 
 
-
+#' @title re_dnaID
 #' @export
 re_dnaID <- function(tb,tb_rednaid){
+  require(glue)
   #1: Go through each row in the rednaID table
   #2: for the given pit, and date:
   #3: find the item in the datepit table with:
