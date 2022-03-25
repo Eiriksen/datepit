@@ -57,6 +57,52 @@ datepit_to_ID = function(tb, tb_pit){
   return(tb)
 }
 
+#' @title datepit_to_ID
+#' @description Function for obtaining the ID of an individual using columns date and pit. It takes in two tables, one to fill in (tb) and one to look up pit-tags from (tb_pit)
+#' @param tb table to put ID's into (and get pit tags and dates from) must have columns "date" and "pit". Date should be formated as date-month-year or as a date value. The function's output will be this table plus a new "ID" column.
+#' @param tb_pit a table that contains all known pit tags, their date of registration, and their corresponding ID. Date should be formated as data-month-year or as a date value.
+#' @examples tb_fish_withID <- datepit_to_ID(tb_fish,tb_pit)
+#' @examples tb_fish_withID <- tb_fish %>% datepit_to_ID(tb_pit)
+#' @examples tb_fish_withID <- tb_fish %>% datepit_to-ID(read.table("pit date reference.txt",head=T))
+#' @export
+datepit_to_ID2 = function(tb, tb_pit){
+  require(lubridate)
+
+  # check that pit and date columns exist in the table
+  if (!"date" %in% colnames(tb)) stop("date column missing from tb")
+  if (!"pit" %in% colnames(tb)) stop("pit column missing from tb")
+  if (!"date" %in% colnames(tb_pit)) stop("date column missing from tb")
+  if (!"pit" %in% colnames(tb_pit)) stop("pit column missing from tb")
+
+  # save the old date column in the tb before messing around with it
+  .oldDate <- tb$date
+
+  # format dates, if necessary
+  tb_pit$date <- ymd(tb_pit$date)
+  tb_pit <- tb_pit %>% rename(date_pit=date)
+  tb$date <- ymd(tb$date)
+
+
+  tb_obs_pit <-
+    tb %>%
+    mutate(observation = row_number()) %>%
+    left_join(tb_pit,by="pit") %>%
+    filter(!is.na(date_pit)) %>%
+    filter(date_pit <= date) %>%
+    arrange(date_pit) %>%
+    group_by(observation) %>%
+    summarise(ID = ID[n()])
+
+  tb %>%
+    mutate(observation = row_number()) %>%
+    left_join(tb_obs_pit,by="observation") %>%
+    select(-observation)
+
+}
+
+
+
+
 
 
 
@@ -70,6 +116,8 @@ re_dnaID <- function(tb,tb_rednaid){
   #4: the same pit
   #5: that was registered the time before that datepit
   #6 then, rename the ID in that item with the one from the current row in the rednaID table
+
+  tb_rednaid <- tb_rednaid %>% clean_ID_df(column_name="dnaID",prefix="Offsp",numLength=4,keep_name=T,remove_NA=F)
 
   for( i_row in 1:nrow(tb_rednaid) )
   {
@@ -94,20 +142,54 @@ re_dnaID <- function(tb,tb_rednaid){
 #' @export
 write_datepit_file <- function(tb, finclip_matches){
 
+  identify_fleeters <- function(tb_pits){
+    tb_lonely_measurements <-
+      tb_pits %>%
+      group_by(i_measurement) %>%
+      summarise(
+        lonely = if_else(sum(!is.na(pit)) == 1 & all(is.na(dnaID)),T,F)
+        ) %>% ungroup()
+
+    # if first mention of pit is missing dnaID and another pit (is lonely), make fleeter
+    # alternatively, if a "pit_new" is lonely, also make fleeter
+    tb_pits %>%
+      left_join(tb_lonely_measurements,by="i_measurement") %>%
+      group_by(pit) %>%
+      arrange(date) %>%
+      filter(pit!="" & !is.na(pit)) %>%
+      mutate(
+        dnaID = ifelse((1:n())==1 & lonely, yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID),
+        dnaID = ifelse(i_pit == 2 & lonely, yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID)
+      ) %>%
+      ungroup() %>%
+      select(-lonely)
+  }
+
+  cycle <- function(tb_ID,tb_raw) {
+    tb_IDtemp <-
+      tb_raw %>%
+      select(-c(dnaID)) %>%
+      filter(!is.na(pit),nchar(pit)==23) %>%
+      datepit_to_ID2(tb_ID) %>%
+      pivot_wider(id_cols = c(i_measurement,date,ID), names_from = i_pit, values_from=pit) %>% group_by(i_measurement) %>% summarise_all(function(x){x[!is.na(x)][1]}) %>%
+      pivot_longer(-c(date,ID,i_measurement),names_to="i_pit",values_to="pit") %>%
+      group_by(pit,i_pit,i_measurement) %>%
+      summarise(
+        date = ymd(date[1]),
+        ID = ID[1]
+      ) %>%
+      filter(!is.na(ID),!is.na(pit)) %>%
+      group_by(ID,pit) %>%
+      summarise_all(function(x){x[!is.na(x)][1]}) %>%
+      ungroup()
+  }
+
+
   # a table with where every record of a pit tag is one row
   # incl. pit, date, i_measurement, dnaID (if any), pit_i
-  tf_pit_raw_long <-
+  tf_pit_raw_long <<-
     tb %>%
     clean_ID_df(column_name="dnaID",prefix="Offsp",numLength=4,keep_name=T,remove_NA=F) %>%
-    # if the first occurance of a PIT does not have a dnaID, give it a fleeter ID
-    group_by(pit) %>%
-    arrange(date) %>%
-    # if first mention of pit is missing dnaID, make fleeter
-    filter(pit!="" & !is.na(pit)) %>%
-    mutate(
-      dnaID = ifelse((1:n())==1 & is.na(dnaID), yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID)
-    ) %>%
-    ungroup() %>%
     rename(
       pit.1=pit,
       pit.2=pit_new,
@@ -116,8 +198,11 @@ write_datepit_file <- function(tb, finclip_matches){
     ) %>%
     mutate(i_measurement = row_number()) %>%
     pivot_longer(c(pit.1,pit.2,pit.3,pit.4),names_to="i_pit",values_to="pit") %>%
-    select(pit, date, dnaID, i_pit,i_measurement) %>%
-    filter(!is.na(pit),nchar(pit)==23)
+    filter(!is.na(pit),nchar(pit)==23) %>%
+    identify_fleeters() %>%
+    select(pit, date, dnaID, i_pit,i_measurement)
+
+
 
   # finclip matches
   # keep only rows with a DNAID - and translate DNAID to ID_original
@@ -133,33 +218,14 @@ write_datepit_file <- function(tb, finclip_matches){
       overwriteNA = F
     )
 
-  cycle <- function(tb_ID,tb_raw,msg) {
-    message(msg)
-    tb_ID <-
-      tb_raw %>%
-      select(-c(dnaID)) %>%
-      filter(!is.na(pit),nchar(pit)==23) %>%
-      datepit_to_ID(tb_ID) %>%
-      pivot_wider(names_from = i_pit, values_from=pit) %>% group_by(i_measurement) %>% summarise_all(function(x){x[!is.na(x)][1]}) %>%
-      pivot_longer(-c(date,ID,i_measurement),names_to="i_pit",values_to="pit") %>%
-      group_by(pit,i_pit,i_measurement) %>%
-      summarise(
-        date = ymd(date[1]),
-        ID = ID[1]
-      ) %>%
-      filter(!is.na(ID),!is.na(pit)) %>%
-      group_by(ID,pit) %>%
-      summarise_all(function(x){x[!is.na(x)][1]}) %>%
-      ungroup()
-  }
 
 
   tf_pit_ID <-
     tf_pit_DNAID %>%
     rename(ID=dnaID) %>%
-    cycle(tf_pit_raw_long,"0-32%") %>%
-    cycle(tf_pit_raw_long,"33-65%") %>%
-    cycle(tf_pit_raw_long,"66-100%") %>%
+    cycle(tf_pit_raw_long) %>%
+    cycle(tf_pit_raw_long) %>%
+    cycle(tf_pit_raw_long) %>%
     select(pit,date,ID)
 
   return(tf_pit_ID)
