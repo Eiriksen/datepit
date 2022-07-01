@@ -78,9 +78,10 @@ datepit_to_ID2 = function(tb, tb_pit){
   .oldDate <- tb$date
 
   # format dates, if necessary
-  tb_pit$date <- ymd(tb_pit$date)
+  if(!is.Date(tb_pit$date)) tb_pit$date <- ymd(tb_pit$date)
   tb_pit <- tb_pit %>% rename(date_pit=date)
-  tb$date <- ymd(tb$date)
+
+  if(!is.Date(tb$date)) tb$date <- ymd(tb$date)
 
 
   tb_obs_pit <-
