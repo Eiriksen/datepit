@@ -143,7 +143,7 @@ re_dnaID <- function(tb,tb_rednaid){
 #' @export
 write_datepit_file <- function(tb, finclip_matches){
 
-  identify_fleeters <- function(tb_pits){
+  identify_incognitos <- function(tb_pits){
     tb_lonely_measurements <-
       tb_pits %>%
       group_by(i_measurement) %>%
@@ -151,16 +151,16 @@ write_datepit_file <- function(tb, finclip_matches){
         lonely = if_else(sum(!is.na(pit)) == 1 & all(is.na(dnaID)),T,F)
         ) %>% ungroup()
 
-    # if first mention of pit is missing dnaID and another pit (is lonely), make fleeter
-    # alternatively, if a "pit_new" is lonely, also make fleeter
+    # if first mention of pit is missing dnaID and another pit (is lonely), make incognito
+    # alternatively, if a "pit_new" is lonely, also make incognito
     tb_pits %>%
       left_join(tb_lonely_measurements,by="i_measurement") %>%
       group_by(pit) %>%
       arrange(date) %>%
       filter(pit!="" & !is.na(pit)) %>%
       mutate(
-        dnaID = ifelse((1:n())==1 & lonely, yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID),
-        dnaID = ifelse(i_pit == 2 & lonely, yes=glue::glue("Fleeter{date}{measOrder}"), no=dnaID)
+        dnaID = ifelse((1:n())==1 & lonely, yes=glue::glue("Incognito{date}{measOrder}"), no=dnaID),
+        dnaID = ifelse(i_pit == 2 & lonely, yes=glue::glue("Incognito{date}{measOrder}"), no=dnaID)
       ) %>%
       ungroup() %>%
       select(-lonely)
@@ -200,7 +200,7 @@ write_datepit_file <- function(tb, finclip_matches){
     mutate(i_measurement = row_number()) %>%
     pivot_longer(c(pit.1,pit.2,pit.3,pit.4),names_to="i_pit",values_to="pit") %>%
     filter(!is.na(pit),nchar(pit)==23) %>%
-    identify_fleeters() %>%
+    identify_incognitos() %>%
     select(pit, date, dnaID, i_pit,i_measurement)
 
 
