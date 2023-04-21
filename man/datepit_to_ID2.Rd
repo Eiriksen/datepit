@@ -2,7 +2,7 @@
 % Please edit documentation in R/datepit.R
 \name{datepit_to_ID2}
 \alias{datepit_to_ID2}
-\title{datepit_to_ID}
+\title{datepit_to_ID2}
 \usage{
 datepit_to_ID2(tb, tb_pit)
 }
